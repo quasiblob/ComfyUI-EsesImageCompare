@@ -1,3 +1,42 @@
+// ==========================================================================
+// Eses Image Compare
+// ==========================================================================
+// 
+// Description:
+// The 'Eses Image Compare' node provides a versatile tool for comparing
+// two images directly within the ComfyUI interface. It features a draggable
+// slider for interactive side-by-side comparison and various blend modes
+// for visual analysis of differences.
+// 
+// Key Features:
+// 
+// - Interactive Image Comparison:
+//   - A draggable slider allows for real-time comparison of two input images.
+//   - Supports a "normal" comparison mode where the slider reveals parts of Image A
+//     over Image B.
+//   - Includes multiple blend modes (difference, lighten, darken, screen, multiply)
+//     for advanced visual analysis of image variations.
+// 
+// - Live Preview:
+//   - The node displays a live preview of the connected images, updating as
+//     the slider is moved or the blend mode is changed.
+// 
+// - Difference Mask Output:
+//   - Generates a grayscale mask highlighting the differences between Image A and Image B,
+//     useful for further processing or analysis in the workflow.
+// 
+// - Quality of Life Features:
+//   - Automatic resizing of the node to match the aspect ratio of the input images.
+//   - "Reset Node Size" button to re-trigger the auto-sizing and reset the slider position.
+//   - State serialization: Slider position and blend mode are saved with the workflow.
+// 
+// Version: 1.1.0 (Initial Release)
+// 
+// License: See LICENSE.txt
+// 
+// ==========================================================================
+
+
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 
@@ -18,7 +57,7 @@ app.registerExtension({
             node.slider_pos = NEUTRALPOS;
             node.setSize([320, 440]);
 
-            const blendModes = ["normal", "difference", "lighter (add)", "multiply", "darken", "screen"];
+            const blendModes = ["normal", "difference", "lighten", "darken", "screen", "multiply"];
             
             node.addWidget("combo", "Blend Mode", "normal", function (value) {
                 node.properties.blend_mode = value;
@@ -95,7 +134,8 @@ app.registerExtension({
             const drawLabelWithBackground = (ctx, text, x, y, textAlign) => {
                 const textMetrics = ctx.measureText(text);
                 const boxPadding = 2;
-                const boxHeight = 9 + (boxPadding * 2); // Font size is 8px
+                const fontSize = 8;
+                const boxHeight = fontSize + (boxPadding * 2);
                 const boxWidth = textMetrics.width + (boxPadding * 2);
                 const boxRadius = 1.5;
 
@@ -108,7 +148,9 @@ app.registerExtension({
                     boxX = x - textMetrics.width - boxPadding;
                 }
                 
-                const boxY = y - boxPadding;
+                // Adjust boxY to account for the textBaseline change
+                // NOTE, 0.3 modifies the pos slightly
+                const boxY = y - (fontSize / 2) - boxPadding - 0.3; 
 
                 // Draw rounded rect background
                 ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
@@ -124,6 +166,7 @@ app.registerExtension({
                 // Draw text
                 ctx.fillStyle = "white";
                 ctx.textAlign = textAlign;
+                ctx.textBaseline = "middle"; // Change textBaseline to middle
                 ctx.fillText(text, x, y);
             }
 
@@ -189,21 +232,26 @@ app.registerExtension({
                         const blendMode = this.properties.blend_mode || "normal";
 
                         const setTextStyle = () => {
-                            ctx.font = "8px Arial";
-                            ctx.shadowColor = 'rgba(0, 0, 0, 255)';
-                            ctx.shadowOffsetX = 0;
-                            ctx.shadowOffsetY = 0;
-                            ctx.shadowBlur = 6;
+                            //ctx.font = "8px Arial";
+                            ctx.font = "100 8px Arial";
+
+                            // Disabled shadows
+                            // ctx.shadowColor = 'rgba(0, 0, 0, 255)';
+                            // ctx.shadowOffsetX = 0;
+                            // ctx.shadowOffsetY = 0;
+                            // ctx.shadowBlur = 6;
                             ctx.textBaseline = "top";
                         };
 
-                        // --- Main Drawing Logic ---
+
+                        // Main Drawing Logic ---
+
                         if (blendMode !== "normal" && this.imageB) {
                             let compositeOp = "source-over";
 
                             if (blendMode === "difference")
                                 compositeOp = "difference";
-                            else if (blendMode === "lighter (add)")
+                            else if (blendMode === "lighten")
                                 compositeOp = "lighter";
                             else if (blendMode === "multiply")
                                 compositeOp = "multiply";
@@ -241,7 +289,7 @@ app.registerExtension({
                             ctx.restore();
                         }
 
-                        // --- Text & UI Drawing ---
+                        // Text & UI Drawing ---
                         setTextStyle();
 
                         // Image A label
@@ -249,7 +297,7 @@ app.registerExtension({
                         ctx.beginPath();
                         ctx.rect(renderData.x, renderData.y, sliderPx - renderData.x, renderData.height);
                         ctx.clip();
-                        drawLabelWithBackground(ctx, "A", renderData.x + 9, renderData.y + 9, "left");
+                        drawLabelWithBackground(ctx, "A", renderData.x + 5, renderData.y + 9, "left");
                         ctx.restore();
 
                         // Image B label
@@ -259,14 +307,14 @@ app.registerExtension({
                         const rightMaskWidth = (renderData.x + renderData.width) - sliderPx;
                         ctx.rect(rightMaskStart, renderData.y, rightMaskWidth, renderData.height);
                         ctx.clip();
-                        drawLabelWithBackground(ctx, "B", renderData.x + renderData.width - 9, renderData.y + 9, "right");
+                        drawLabelWithBackground(ctx, "B", renderData.x + renderData.width - 5, renderData.y + 9, "right");
                         ctx.restore();
 
                         const lineColor = "rgba(255, 255, 255, 0.3)";
                         const handleColor = "rgba(255, 255, 255, 1.0)";
 
                         ctx.strokeStyle = lineColor;
-                        ctx.lineWidth = 1;
+                        ctx.lineWidth = 0.5;
                         ctx.beginPath();
                         ctx.moveTo(sliderPx, renderData.y);
                         ctx.lineTo(sliderPx, renderData.y + renderData.height);
@@ -274,8 +322,8 @@ app.registerExtension({
 
                         ctx.fillStyle = handleColor;
                         const handleY = renderData.y + renderData.height / 2;
-                        const triangleSize = 4;
-                        const triangleGap = 3;
+                        const triangleSize = 3.5;
+                        const triangleGap = 2.5;
                         const smallValue = 0.001;
 
                         // Left-pointing triangle 
@@ -300,8 +348,9 @@ app.registerExtension({
                             ctx.fill();
                         }
 
-                    } else {
-                        ctx.font = "9px Arial";
+                    } 
+                    else {
+                        ctx.font = "11px Arial";
                         ctx.fillStyle = "#CCCCCC";
                         ctx.textAlign = "center";
                         ctx.textBaseline = "middle";
@@ -312,10 +361,12 @@ app.registerExtension({
                         
                         ctx.fillText(text, containerArea.x + containerArea.width / 2, containerArea.y + containerArea.height / 2);
                     }
+
                     ctx.restore();
                 },
 
                 updateSliderFromEvent(event) {
+                    
                     if (!this.imageA) return;
 
                     const renderData = this.getImageRenderData(this.imageA, this.getContainerArea());
@@ -327,6 +378,7 @@ app.registerExtension({
                 },
 
                 onMouseDown(event) {
+                    
                     if (event.button !== 0 || !this.imageA || !this.imageB) return false;
 
                     const renderData = this.getImageRenderData(this.imageA, this.getContainerArea());
@@ -356,6 +408,10 @@ app.registerExtension({
     },
 });
 
+
+
+// Listeners -----------
+
 api.addEventListener("eses.image_compare_preview", ({ detail }) => {
     const node = app.graph.getNodeById(detail.node_id);
     if (!node) return;
@@ -382,3 +438,4 @@ api.addEventListener("eses.image_compare_preview", ({ detail }) => {
     node.imageA = detail.image_a_data ? Object.assign(new Image(), { src: `data:image/png;base64,${detail.image_a_data}`, onload: onAssetLoaded }) : null;
     node.imageB = detail.image_b_data ? Object.assign(new Image(), { src: `data:image/png;base64,${detail.image_b_data}`, onload: onAssetLoaded }) : null;
 });
+

@@ -1,3 +1,42 @@
+# ==========================================================================
+# Eses Image Compare
+# ==========================================================================
+#
+# Description:
+# The 'Eses Image Compare' node provides a versatile tool for comparing
+# two images directly within the ComfyUI interface. It features a draggable
+# slider for interactive side-by-side comparison and various blend modes
+# for visual analysis of differences.
+#
+# Key Features:
+#
+# - Interactive Image Comparison:
+#   - A draggable slider allows for real-time comparison of two input images.
+#   - Supports a "normal" comparison mode where the slider reveals parts of Image A
+#     over Image B.
+#   - Includes multiple blend modes (difference, lighten, darken, screen, multiply)
+#     for advanced visual analysis of image variations.
+#
+# - Live Preview:
+#   - The node displays a live preview of the connected images, updating as
+#     the slider is moved or the blend mode is changed.
+#
+# - Difference Mask Output:
+#   - Generates a grayscale mask highlighting the differences between Image A and Image B,
+#     useful for further processing or analysis in the workflow.
+#
+# - Quality of Life Features:
+#   - Automatic resizing of the node to match the aspect ratio of the input images.
+#   - "Reset Node Size" button to re-trigger the auto-sizing and reset the slider position.
+#   - State serialization: Slider position and blend mode are saved with the workflow.
+#
+# Version: 1.1.0 (Initial Release)
+#
+# License: See LICENSE.txt
+#
+# ==========================================================================
+
+
 import torch
 import numpy as np
 from PIL import Image
@@ -9,13 +48,15 @@ import base64
 
 class EsesImageCompare:
     """
-    A custom node to compare two images with a draggable slider and selectable blend modes.
-    This node now includes an optional passthrough for image_a and a difference mask output.
+    A custom node to compare two images with a 
+    draggable slider and selectable blend modes.
+    This node includes an optional passthrough 
+    for image_a and a difference mask output.
     """
     
     @classmethod
     def INPUT_TYPES(cls):
-        blend_modes = ["normal", "difference", "lighter (add)", "multiply", "darken", "screen"]
+        blend_modes = ["normal", "difference", "lighten", "darken", "screen", "multiply"]
         return {
             "required": {
                 "image_a": ("IMAGE",),

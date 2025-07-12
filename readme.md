@@ -98,6 +98,8 @@ Eses Nodes/Image Utilities
 
 ## Update History
 
+* **2025.7.12 Version 1.1.0** Minor UI tweaks, disabled shadow effect
+
 * **2025.7.12 Version 1.0.0** Initial public release
 
 
