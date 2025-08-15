@@ -30,7 +30,7 @@
 #   - "Reset Node Size" button to re-trigger the auto-sizing and reset the slider position.
 #   - State serialization: Slider position and blend mode are saved with the workflow.
 #
-# Version: 1.1.0 (Initial Release)
+# Version: 1.2.0 (Initial Release)
 #
 # License: See LICENSE.txt
 #

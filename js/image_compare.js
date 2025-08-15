@@ -30,7 +30,7 @@
 //   - "Reset Node Size" button to re-trigger the auto-sizing and reset the slider position.
 //   - State serialization: Slider position and blend mode are saved with the workflow.
 // 
-// Version: 1.1.0 (Initial Release)
+// Version: 1.2.0 (Initial Release)
 // 
 // License: See LICENSE.txt
 // 
@@ -404,8 +404,110 @@ app.registerExtension({
                     if (this.isDragging) this.isDragging = false;
                 },
             });
+            
+            // --- CONTEXT MENU LOGIC ---
+            const originalGetExtraMenuOptions = node.getExtraMenuOptions;
+            node.getExtraMenuOptions = function(canvas, options) {
+                if (originalGetExtraMenuOptions) {
+                    originalGetExtraMenuOptions.apply(this, arguments);
+                }
+
+                // Add "Save Workflow" option, always available
+                options.unshift({
+                    content: "Save Workflow (.json)",
+                    callback: () => {
+                        const workflowJson = JSON.stringify(app.graph.serialize(), null, 2);
+                        const blob = new Blob([workflowJson], { type: "application/json" });
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        const timestamp = new Date().getTime();
+                        link.download = `workflow_${timestamp}.json`;
+                        link.href = url;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(url); // Clean up the object URL
+                    }
+                });
+
+
+                // Image-related menu options
+                const containerArea = this.getContainerArea();
+                if (!this.imageA || !containerArea) {
+                    return;
+                }
+
+                const renderData = this.getImageRenderData(this.imageA, containerArea);
+                const mouse_pos = canvas.graph_mouse;
+
+                const isOverImage = mouse_pos[0] >= this.pos[0] + renderData.x &&
+                                    mouse_pos[0] <= this.pos[0] + renderData.x + renderData.width &&
+                                    mouse_pos[1] >= this.pos[1] + renderData.y &&
+                                    mouse_pos[1] <= this.pos[1] + renderData.y + renderData.height;
+
+                if (isOverImage) {
+                    const sliderAbsX = this.pos[0] + renderData.x + (this.slider_pos * renderData.width);
+                    let imageToOpen = null;
+                    let imageLabel = '';
+
+                    if (mouse_pos[0] < sliderAbsX) {
+                        imageToOpen = this.imageA;
+                        imageLabel = 'A';
+                    } 
+                    else if (this.imageB) {
+                        imageToOpen = this.imageB;
+                        imageLabel = 'B';
+                    }
+
+                    if (imageToOpen) {
+                        const timestamp = new Date().getTime();
+                        const filename = `image_compare_${imageLabel}_${timestamp}.png`;
+
+                        // "Open Image" menu item
+                        options.unshift({
+                            content: "Open Image",
+
+                            callback: () => {
+                                const newTab = window.open("", "_blank");
+
+                                if (newTab) {
+                                    newTab.document.title = filename;
+                                    const htmlContent = `
+                                        <body style="margin:0; background-color:#222; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px; font-family:sans-serif;">
+                                            <img src="${imageToOpen.src}" style="max-width:90%; max-height:85vh; object-fit:contain; box-shadow:0 0 15px rgba(0,0,0,0.5);">
+                                            <div style="color:#ddd; background-color:#3c3c3c; padding:8px 12px; border-radius:5px; font-family:monospace; user-select:all;">
+                                                ${filename}
+                                            </div>
+                                        </body>
+                                    `;
+                                    newTab.document.write(htmlContent);
+                                    newTab.document.close();
+                                } 
+                                else {
+                                    alert("Pop-up was blocked. Please allow pop-ups for this site.");
+                                }
+                            }
+                        });
+
+                        // "Save Image" menu item
+                        options.unshift({
+                            content: "Save Image",
+                            
+                            callback: () => {
+                                const link = document.createElement('a');
+                                link.download = filename;
+                                link.href = imageToOpen.src;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            }
+                        });
+                    }
+                }
+            };
         }
     },
+
 });
 
 
@@ -438,4 +540,3 @@ api.addEventListener("eses.image_compare_preview", ({ detail }) => {
     node.imageA = detail.image_a_data ? Object.assign(new Image(), { src: `data:image/png;base64,${detail.image_a_data}`, onload: onAssetLoaded }) : null;
     node.imageB = detail.image_b_data ? Object.assign(new Image(), { src: `data:image/png;base64,${detail.image_b_data}`, onload: onAssetLoaded }) : null;
 });
-
