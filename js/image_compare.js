@@ -30,7 +30,7 @@
 //   - "Reset Node Size" button to re-trigger the auto-sizing and reset the slider position.
 //   - State serialization: Slider position and blend mode are saved with the workflow.
 // 
-// Version: 1.2.0 (Initial Release)
+// Version: 1.2.2
 // 
 // License: See LICENSE.txt
 // 
@@ -390,29 +390,35 @@ app.registerExtension({
                         mouseY >= renderData.y && mouseY <= renderData.y + renderData.height) {
                         this.isDragging = true;
                         this.updateSliderFromEvent(event);
+                        
                         return true;
                     }
                     return false;
                 },
 
-                onMouseMove(event) {
-                    if (this.isDragging && this.imageA) 
+                 onMouseMove(event) {
+                    if (this.isDragging && event.buttons === 1 && this.imageA) {
                         this.updateSliderFromEvent(event);
+                    }
                 },
 
                 onMouseUp(event) {
-                    if (this.isDragging) this.isDragging = false;
+                    if (event.button === 0 && this.isDragging) {
+                        this.isDragging = false;
+                    }
                 },
             });
             
+            
             // --- CONTEXT MENU LOGIC ---
             const originalGetExtraMenuOptions = node.getExtraMenuOptions;
+            
             node.getExtraMenuOptions = function(canvas, options) {
                 if (originalGetExtraMenuOptions) {
                     originalGetExtraMenuOptions.apply(this, arguments);
                 }
 
-                // Add "Save Workflow" option, always available
+                // "Save Workflow" option, always available
                 options.unshift({
                     content: "Save Workflow (.json)",
                     callback: () => {
@@ -426,7 +432,7 @@ app.registerExtension({
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
-                        URL.revokeObjectURL(url); // Clean up the object URL
+                        URL.revokeObjectURL(url);
                     }
                 });
 
@@ -472,6 +478,7 @@ app.registerExtension({
 
                                 if (newTab) {
                                     newTab.document.title = filename;
+                                    
                                     const htmlContent = `
                                         <body style="margin:0; background-color:#222; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px; font-family:sans-serif;">
                                             <img src="${imageToOpen.src}" style="max-width:90%; max-height:85vh; object-fit:contain; box-shadow:0 0 15px rgba(0,0,0,0.5);">
@@ -480,6 +487,7 @@ app.registerExtension({
                                             </div>
                                         </body>
                                     `;
+
                                     newTab.document.write(htmlContent);
                                     newTab.document.close();
                                 } 
@@ -527,6 +535,7 @@ api.addEventListener("eses.image_compare_preview", ({ detail }) => {
     }
 
     let loadedCount = 0;
+    
     const onAssetLoaded = () => {
         loadedCount++;
         if (loadedCount === assetsToLoad) {

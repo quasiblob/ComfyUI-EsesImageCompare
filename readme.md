@@ -98,6 +98,8 @@ Eses Nodes/Image Utilities
 
 ## Update History
 
+* **2025.10.7 Version 1.2.2** Small fixes - fix sticky slider mouse drag
+
 * **2025.8.15 Version 1.2.0** Added support for save input_a image, open input_a image and save workflow as json
 
 * **2025.7.12 Version 1.1.0** Minor UI tweaks, disabled shadow effect
