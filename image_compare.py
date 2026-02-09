@@ -30,7 +30,7 @@
 #   - "Reset Node Size" button to re-trigger the auto-sizing and reset the slider position.
 #   - State serialization: Slider position and blend mode are saved with the workflow.
 #
-# Version: 1.2.2
+# Version: 1.3.0
 #
 # License: See LICENSE.txt
 #
@@ -97,7 +97,9 @@ class EsesImageCompare:
             PromptServer.instance.send_sync("eses.image_compare_preview", {
                 "node_id": unique_id,
                 "image_a_data": img_a_b64,
-                "image_b_data": img_b_b64
+                "image_b_data": img_b_b64,
+                "image_a_res": f"{image_a.shape[2]} \u00d7 {image_a.shape[1]}" if image_a is not None else None,
+                "image_b_res": f"{image_b.shape[2]} \u00d7 {image_b.shape[1]}" if image_b is not None else None,
             })
         
         diff_mask = torch.zeros_like(image_a[:, :, :, 0])

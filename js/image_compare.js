@@ -30,7 +30,7 @@
 //   - "Reset Node Size" button to re-trigger the auto-sizing and reset the slider position.
 //   - State serialization: Slider position and blend mode are saved with the workflow.
 // 
-// Version: 1.2.2
+// Version: 1.3.0
 // 
 // License: See LICENSE.txt
 // 
@@ -49,6 +49,7 @@ app.registerExtension({
             const HEADER_HEIGHT = 100;
             const MIN_HEIGHT = 300;
             const NEUTRALPOS = 0.5;
+            const RESOLUTION_TEXT_HEIGHT = 20;
 
             node.imageA = null;
             node.imageB = null;
@@ -58,7 +59,7 @@ app.registerExtension({
             node.setSize([320, 440]);
 
             const blendModes = ["normal", "difference", "lighten", "darken", "screen", "multiply"];
-            
+
             node.addWidget("combo", "Blend Mode", "normal", function (value) {
                 node.properties.blend_mode = value;
                 node.setDirtyCanvas(true, true);
@@ -83,7 +84,7 @@ app.registerExtension({
                     node.size[0] = baseWidth;
                     const drawAreaHeight = (baseWidth - PADDING * 2) / aspectRatio;
 
-                    let newHeight = drawAreaHeight + HEADER_HEIGHT + PADDING;
+                    let newHeight = drawAreaHeight + HEADER_HEIGHT + PADDING + RESOLUTION_TEXT_HEIGHT;
 
                     if (newHeight < MIN_HEIGHT) {
                         newHeight = MIN_HEIGHT;
@@ -123,7 +124,7 @@ app.registerExtension({
 
             node.onResize = function () {
                 this.isManuallyResized = true;
-                
+
                 if (this.size[1] < MIN_HEIGHT) {
                     this.size[1] = MIN_HEIGHT;
                 }
@@ -147,10 +148,10 @@ app.registerExtension({
                 else {
                     boxX = x - textMetrics.width - boxPadding;
                 }
-                
+
                 // Adjust boxY to account for the textBaseline change
                 // NOTE, 0.3 modifies the pos slightly
-                const boxY = y - (fontSize / 2) - boxPadding - 0.3; 
+                const boxY = y - (fontSize / 2) - boxPadding - 0.3;
 
                 // Draw rounded rect background
                 ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
@@ -176,7 +177,7 @@ app.registerExtension({
                         x: PADDING,
                         y: HEADER_HEIGHT,
                         width: this.size[0] - PADDING * 2,
-                        height: this.size[1] - HEADER_HEIGHT - PADDING
+                        height: this.size[1] - HEADER_HEIGHT - PADDING - RESOLUTION_TEXT_HEIGHT
                     };
 
                     if (area.height < 0)
@@ -207,12 +208,12 @@ app.registerExtension({
                 },
 
                 onDrawForeground(ctx) {
-                    if (this.flags.collapsed) 
+                    if (this.flags.collapsed)
                         return;
-                    
+
                     ctx.save();
                     const containerArea = this.getContainerArea();
-                    
+
                     if (!containerArea) {
                         ctx.restore();
                         return;
@@ -223,6 +224,17 @@ app.registerExtension({
 
                         if (!this.imageB) {
                             ctx.drawImage(this.imageA, renderData.x, renderData.y, renderData.width, renderData.height);
+                            // Draw Resolution Text (Single Image)
+                            if (this.imageA && this.imageA_res) {
+                                ctx.font = "10px Arial";
+                                ctx.fillStyle = "#dfdfdf";
+                                ctx.textAlign = "center";
+                                ctx.textBaseline = "top";
+
+                                const textX = containerArea.x + (containerArea.width / 2);
+                                const textY = renderData.y + renderData.height + 3;
+                                ctx.fillText(this.imageA_res, textX, textY);
+                            }
                             ctx.restore();
                             return;
                         }
@@ -348,25 +360,43 @@ app.registerExtension({
                             ctx.fill();
                         }
 
-                    } 
+                    }
                     else {
                         ctx.font = "11px Arial";
                         ctx.fillStyle = "#CCCCCC";
                         ctx.textAlign = "center";
                         ctx.textBaseline = "middle";
                         let text = "Connect Image A and B for blend modes";
-                        
-                        if (!this.imageA) 
+
+                        if (!this.imageA)
                             text = "Connect Images and run workflow";
-                        
+
                         ctx.fillText(text, containerArea.x + containerArea.width / 2, containerArea.y + containerArea.height / 2);
+                    }
+
+                    // Draw Resolution Text
+                    if (this.imageA && this.imageA_res) {
+                        const renderData = this.getImageRenderData(this.imageA, containerArea);
+                        ctx.font = "10px Arial";
+                        ctx.fillStyle = "#dfdfdf";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "top";
+
+                        let resText = this.imageA_res;
+                        if (this.imageB && this.imageB_res) {
+                            resText += " : " + this.imageB_res;
+                        }
+
+                        const textX = containerArea.x + (containerArea.width / 2);
+                        const textY = renderData.y + renderData.height + 3;
+                        ctx.fillText(resText, textX, textY);
                     }
 
                     ctx.restore();
                 },
 
                 updateSliderFromEvent(event) {
-                    
+
                     if (!this.imageA) return;
 
                     const renderData = this.getImageRenderData(this.imageA, this.getContainerArea());
@@ -378,7 +408,7 @@ app.registerExtension({
                 },
 
                 onMouseDown(event) {
-                    
+
                     if (event.button !== 0 || !this.imageA || !this.imageB) return false;
 
                     const renderData = this.getImageRenderData(this.imageA, this.getContainerArea());
@@ -390,13 +420,13 @@ app.registerExtension({
                         mouseY >= renderData.y && mouseY <= renderData.y + renderData.height) {
                         this.isDragging = true;
                         this.updateSliderFromEvent(event);
-                        
+
                         return true;
                     }
                     return false;
                 },
 
-                 onMouseMove(event) {
+                onMouseMove(event) {
                     if (this.isDragging && event.buttons === 1 && this.imageA) {
                         this.updateSliderFromEvent(event);
                     }
@@ -408,12 +438,12 @@ app.registerExtension({
                     }
                 },
             });
-            
-            
+
+
             // --- CONTEXT MENU LOGIC ---
             const originalGetExtraMenuOptions = node.getExtraMenuOptions;
-            
-            node.getExtraMenuOptions = function(canvas, options) {
+
+            node.getExtraMenuOptions = function (canvas, options) {
                 if (originalGetExtraMenuOptions) {
                     originalGetExtraMenuOptions.apply(this, arguments);
                 }
@@ -447,9 +477,9 @@ app.registerExtension({
                 const mouse_pos = canvas.graph_mouse;
 
                 const isOverImage = mouse_pos[0] >= this.pos[0] + renderData.x &&
-                                    mouse_pos[0] <= this.pos[0] + renderData.x + renderData.width &&
-                                    mouse_pos[1] >= this.pos[1] + renderData.y &&
-                                    mouse_pos[1] <= this.pos[1] + renderData.y + renderData.height;
+                    mouse_pos[0] <= this.pos[0] + renderData.x + renderData.width &&
+                    mouse_pos[1] >= this.pos[1] + renderData.y &&
+                    mouse_pos[1] <= this.pos[1] + renderData.y + renderData.height;
 
                 if (isOverImage) {
                     const sliderAbsX = this.pos[0] + renderData.x + (this.slider_pos * renderData.width);
@@ -459,7 +489,7 @@ app.registerExtension({
                     if (mouse_pos[0] < sliderAbsX) {
                         imageToOpen = this.imageA;
                         imageLabel = 'A';
-                    } 
+                    }
                     else if (this.imageB) {
                         imageToOpen = this.imageB;
                         imageLabel = 'B';
@@ -478,7 +508,7 @@ app.registerExtension({
 
                                 if (newTab) {
                                     newTab.document.title = filename;
-                                    
+
                                     const htmlContent = `
                                         <body style="margin:0; background-color:#222; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:15px; font-family:sans-serif;">
                                             <img src="${imageToOpen.src}" style="max-width:90%; max-height:85vh; object-fit:contain; box-shadow:0 0 15px rgba(0,0,0,0.5);">
@@ -490,7 +520,7 @@ app.registerExtension({
 
                                     newTab.document.write(htmlContent);
                                     newTab.document.close();
-                                } 
+                                }
                                 else {
                                     alert("Pop-up was blocked. Please allow pop-ups for this site.");
                                 }
@@ -500,7 +530,7 @@ app.registerExtension({
                         // "Save Image" menu item
                         options.unshift({
                             content: "Save Image",
-                            
+
                             callback: () => {
                                 const link = document.createElement('a');
                                 link.download = filename;
@@ -535,7 +565,7 @@ api.addEventListener("eses.image_compare_preview", ({ detail }) => {
     }
 
     let loadedCount = 0;
-    
+
     const onAssetLoaded = () => {
         loadedCount++;
         if (loadedCount === assetsToLoad) {
@@ -548,4 +578,7 @@ api.addEventListener("eses.image_compare_preview", ({ detail }) => {
 
     node.imageA = detail.image_a_data ? Object.assign(new Image(), { src: `data:image/png;base64,${detail.image_a_data}`, onload: onAssetLoaded }) : null;
     node.imageB = detail.image_b_data ? Object.assign(new Image(), { src: `data:image/png;base64,${detail.image_b_data}`, onload: onAssetLoaded }) : null;
+
+    node.imageA_res = detail.image_a_res;
+    node.imageB_res = detail.image_b_res;
 });

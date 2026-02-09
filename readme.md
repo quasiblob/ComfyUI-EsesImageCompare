@@ -98,8 +98,10 @@ Eses Nodes/Image Utilities
 
 ## Update History
 
-* **2025.10.7 Version 1.2.2** Small fixes - fix sticky slider mouse drag
+* **2026.2.9 Version 1.3.0** Added image dimensions display for image_a and image_b inputs. Should also work when only image_a input is connected.
 
+* **2025.10.7 Version 1.2.2** Small fixes - fix sticky slider mouse drag
+* 
 * **2025.8.15 Version 1.2.0** Added support for save input_a image, open input_a image and save workflow as json
 
 * **2025.7.12 Version 1.1.0** Minor UI tweaks, disabled shadow effect
