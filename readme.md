@@ -8,6 +8,7 @@
 > I kindly ask that you respect the licensing terms and the effort put into these tools to ensure their 
 > continued availability for everyone. Thank you!
 
+⚠️ **This node does not work in Nodes 2.0 mode!**
 
 ## Description
 
@@ -28,18 +29,59 @@
 * 💡No other requirements than having ComfyUI installed.
 
 
+## Requirements
+
+* PyTorch (included with a standard ComfyUI installation, no need to install any extra Python packages)
+
+
 ## Features
 
 * **Interactive Slider**: A draggable vertical line allows for precise comparison of two images.
-* **Blend Modes**: A selectable blend mode to view differences between the two images.
-* **Optional Passthrough**: Image A is passed through an output, allowing the node to be used in the middle of a workflow without breaking the chain. This passthrough is optional and won't cause errors if left unconnected.
-* **Optional Diff Mask**: Grayscale / values based difference mask output for detecting image shape/pose/detail changes.
-* **Clean UI**: The appearance of the slider and text labels has been refined for a clear and unobtrusive viewing experience. Slider stays on its place, even if you move the mouse cursor away from the node.
+  * Horizontal and Vertical modes
 
+* **Blend Modes**: A selectable blend mode to view differences between the two images 
+  * Normal
+  * Difference
+  * Lighten
+  * Darken
+  * Screen
+  * Multiply
 
-## Requirements
+* **Save image**:
+  * A direct save image option in right click menu. 
+  * Open image to show in separate browser window.
 
-* PyTorch (included with a standard ComfyUI installation)
+* **Optional Passthrough**: 
+  * Image A is passed through an output.
+  * Allows the node to be used in the middle of a workflow without breaking the chain. 
+  * Passthrough is optional and won't cause errors if left unconnected.
+
+* **Optional Diff Mask**: 
+  * Grayscale / values based difference mask 
+  * Output can be used to detect small image shape/pose/detail changes.
+
+* **Show image(s) resolution**: 
+  * Image A and Image B resolutions are shown below the preview area.
+  
+* **Clean UI**: 
+  * The appearance of the slider and text labels has been refined.
+  * Clear and unobtrusive viewing experience. 
+  * Slider stays on its place, even if you move the mouse cursor away from the node!
+
+## Images
+
+Axis modes (Swap between modes, slider keeps left/top relative position)
+
+![Eses Image Compare Node - axis mode](docs/image_axis_mode.png)
+
+Blend modes (example: overlay OpenPose skeleton over a generated image)
+
+![Eses Image Compare Node - blend modes](docs/image_blend_modes.png)
+
+Menu options (some extra features)
+
+![Eses Image Compare Node - menu options](docs/image_menu_options.png)
+
 
 
 ## Installation
@@ -98,15 +140,28 @@ Eses Nodes/Image Utilities
 
 ## Update History
 
-* **2026.2.9 Version 1.3.0** Added image dimensions display for image_a and image_b inputs, also works in single input mode.
+* **2026.4.10 Version 1.5.0** 
+  * Added vertical/horizontal comparison mode toggle. 
+  * Changed handle shape.
+  * Adjusted resolution display placement.
+  * Updated documentation, list features added in previous updates, added new demo images.
 
-* **2025.10.7 Version 1.2.2** Small fixes - fix sticky slider mouse drag
+* **2026.2.9 Version 1.3.0** 
+  * Added image dimensions display for image_a and image_b inputs. 
+  * This should also work when only image_a input is connected.
 
-* **2025.8.15 Version 1.2.0** Added support for save input_a image, open input_a image and save workflow as json
+* **2025.10.7 Version 1.2.2** 
+  * Small fixes - fix sticky slider mouse drag
 
-* **2025.7.12 Version 1.1.0** Minor UI tweaks, disabled shadow effect
+* **2025.8.15 Version 1.2.0** 
+  * Added support for saving input_a image.
+  * Open input_a image and save workflow as json.
 
-* **2025.7.12 Version 1.0.0** Initial public release
+* **2025.7.12 Version 1.1.0** 
+  * Minor UI tweaks, disabled shadow effect
+
+* **2025.7.12 Version 1.0.0** 
+  * Initial public release
 
 
 ## ⚠️Disclaimer⚠️

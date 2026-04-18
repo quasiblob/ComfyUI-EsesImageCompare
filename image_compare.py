@@ -30,7 +30,7 @@
 #   - "Reset Node Size" button to re-trigger the auto-sizing and reset the slider position.
 #   - State serialization: Slider position and blend mode are saved with the workflow.
 #
-# Version: 1.3.0
+# Version: 1.5.0
 #
 # License: See LICENSE.txt
 #
@@ -57,6 +57,7 @@ class EsesImageCompare:
     @classmethod
     def INPUT_TYPES(cls):
         blend_modes = ["normal", "difference", "lighten", "darken", "screen", "multiply"]
+        compare_axes = ["horizontal", "vertical"]
         return {
             "required": {
                 "image_a": ("IMAGE",),
@@ -68,7 +69,8 @@ class EsesImageCompare:
                 "prompt": "PROMPT", 
                 "extra_pnginfo": "EXTRA_PNGINFO", 
                 "unique_id": "UNIQUE_ID",
-                "blend_mode": (blend_modes, {"default": "normal"})
+                "blend_mode": (blend_modes, {"default": "normal"}),
+                "compare_axis": (compare_axes, {"default": "horizontal"})
             },
         }
 
@@ -78,7 +80,9 @@ class EsesImageCompare:
     OUTPUT_NODE = True 
     CATEGORY = "Eses Nodes/Image Utilities"
 
-    def execute(self, image_a, image_b=None, prompt=None, extra_pnginfo=None, unique_id=None, blend_mode="normal"):
+    def execute(self, image_a, image_b=None, prompt=None, extra_pnginfo=None, unique_id=None, blend_mode="normal", compare_axis="horizontal"):
+        # compare_axis is used by the frontend preview and persisted via hidden input.
+        _ = compare_axis
         if unique_id:
             img_a_b64, img_b_b64 = None, None
 

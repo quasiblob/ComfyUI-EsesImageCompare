@@ -30,7 +30,7 @@
 //   - "Reset Node Size" button to re-trigger the auto-sizing and reset the slider position.
 //   - State serialization: Slider position and blend mode are saved with the workflow.
 // 
-// Version: 1.3.0
+// Version: 1.5.0
 // 
 // License: See LICENSE.txt
 // 
@@ -45,11 +45,42 @@ app.registerExtension({
 
     nodeCreated(node) {
         if (node.comfyClass === "EsesImageCompare") {
+            
+            // Variables -----------
+
             const PADDING = 10;
             const HEADER_HEIGHT = 100;
             const MIN_HEIGHT = 300;
             const NEUTRALPOS = 0.5;
-            const RESOLUTION_TEXT_HEIGHT = 20;
+            const BOTTOM_PADDING = 4;
+            const RESOLUTION_TEXT_HEIGHT = 14;
+            const RESOLUTION_TEXT_TOP_OFFSET = 5;
+
+            const DEFAULT_COMPARE_AXIS = "horizontal";
+            const CONTROL_ROW_PADDING = 14;
+            const CONTROL_ROW_GAP = 8;
+            const CONTROL_ROW_HEIGHT = 20;
+            const HANDLE_SCALE = 0.6;
+
+            const blendModes = ["normal", "difference", "lighten", "darken", "screen", "multiply"];
+            const compareAxes = ["horizontal", "vertical"];
+
+            const normalizeCompareAxis = (value) => compareAxes.includes(value) ? value : DEFAULT_COMPARE_AXIS;
+            const getAxisControlLabel = () => normalizeCompareAxis(node.properties.compare_axis) === "vertical" ? "Axis: Vertical" : "Axis: Horizontal";
+            
+            const getWidgetThemeColors = () => {
+                const lg = (typeof LiteGraph !== "undefined") ? LiteGraph : null;
+                return {
+                    bg: lg?.WIDGET_BGCOLOR || "#2b2b2b",
+                    outline: lg?.WIDGET_OUTLINE_COLOR || "#666",
+                    text: lg?.WIDGET_TEXT_COLOR || lg?.NODE_TEXT_COLOR || "#DDD"
+                };
+            };
+
+            const setCompareAxis = (value) => {
+                node.properties.compare_axis = normalizeCompareAxis(value);
+                node.setDirtyCanvas(true, true);
+            };
 
             node.imageA = null;
             node.imageB = null;
@@ -57,25 +88,107 @@ app.registerExtension({
             node.isManuallyResized = false;
             node.slider_pos = NEUTRALPOS;
             node.setSize([320, 440]);
-
-            const blendModes = ["normal", "difference", "lighten", "darken", "screen", "multiply"];
+            node.properties = node.properties || {};
+            node.properties.compare_axis = normalizeCompareAxis(node.properties.compare_axis);
 
             node.addWidget("combo", "Blend Mode", "normal", function (value) {
-                node.properties.blend_mode = value;
-                node.setDirtyCanvas(true, true);
-            }, { values: blendModes, property: "blend_mode" });
+                    node.properties.blend_mode = value;
+                    node.setDirtyCanvas(true, true);
+                }, { 
+                    values: blendModes, property: "blend_mode" 
+                }
+            );
 
-
-            node.addWidget("button", "Reset Node Size", null, () => {
+            const resetNodeSize = () => {
                 node.isManuallyResized = false;
                 node.slider_pos = NEUTRALPOS;
 
                 if (node.imageA) {
                     autosize(node.imageA);
                 }
-
                 node.setDirtyCanvas(true, true);
-            });
+            };
+
+            const toggleCompareAxis = () => {
+                const currentAxis = normalizeCompareAxis(node.properties.compare_axis);
+                const nextAxis = currentAxis === "horizontal" ? "vertical" : "horizontal";
+                setCompareAxis(nextAxis);
+            };
+
+            const getControlRowRects = (widget) => {
+                const rowY = (widget.last_y ?? 0);
+                const rowWidth = Math.max(40, node.size[0] - CONTROL_ROW_PADDING * 2);
+                const buttonWidth = (rowWidth - CONTROL_ROW_GAP) / 2;
+                return {
+                    reset: {
+                        x: CONTROL_ROW_PADDING,
+                        y: rowY,
+                        w: buttonWidth,
+                        h: CONTROL_ROW_HEIGHT
+                    },
+                    axis: {
+                        x: CONTROL_ROW_PADDING + buttonWidth + CONTROL_ROW_GAP,
+                        y: rowY,
+                        w: buttonWidth,
+                        h: CONTROL_ROW_HEIGHT
+                    }
+                };
+            };
+
+            const controlRowWidget = node.addWidget("custom", "compare_controls", "", () => { }, {});
+            controlRowWidget.computeSize = () => [0, CONTROL_ROW_HEIGHT];
+
+            controlRowWidget.draw = function (ctx) {
+                const rects = getControlRowRects(this);
+                const themeColors = getWidgetThemeColors();
+                const drawButton = (rect, label) => {
+                    ctx.save();
+                    ctx.fillStyle = themeColors.bg;
+                    ctx.strokeStyle = themeColors.outline;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    drawRoundedRectPath(ctx, rect.x, rect.y, rect.w, rect.h, 3);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.font = "11px Arial";
+                    ctx.fillStyle = themeColors.text;
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(label, rect.x + (rect.w / 2), rect.y + (rect.h / 2));
+                    ctx.restore();
+                };
+
+                drawButton(rects.reset, "Reset Node Size");
+                drawButton(rects.axis, getAxisControlLabel());
+            };
+
+            controlRowWidget.mouse = function (event, pos) {
+                const eventType = event?.type;
+                const isMouseDownEvent = eventType === "mousedown" || eventType === "pointerdown";
+                if (eventType && !isMouseDownEvent) {
+                    return false;
+                }
+
+                if (event?.button !== undefined && event.button !== 0) {
+                    return false;
+                }
+
+                const rects = getControlRowRects(this);
+                const isInsideRect = (p, rect) => p[0] >= rect.x && p[0] <= rect.x + rect.w && p[1] >= rect.y && p[1] <= rect.y + rect.h;
+
+                if (isInsideRect(pos, rects.reset)) {
+                    resetNodeSize();
+                    return true;
+                }
+
+                if (isInsideRect(pos, rects.axis)) {
+                    toggleCompareAxis();
+                    return true;
+                }
+
+                return false;
+            };
 
             const autosize = (img) => {
                 if (!node.isManuallyResized && img) {
@@ -84,7 +197,7 @@ app.registerExtension({
                     node.size[0] = baseWidth;
                     const drawAreaHeight = (baseWidth - PADDING * 2) / aspectRatio;
 
-                    let newHeight = drawAreaHeight + HEADER_HEIGHT + PADDING + RESOLUTION_TEXT_HEIGHT;
+                    let newHeight = drawAreaHeight + HEADER_HEIGHT + BOTTOM_PADDING + RESOLUTION_TEXT_HEIGHT;
 
                     if (newHeight < MIN_HEIGHT) {
                         newHeight = MIN_HEIGHT;
@@ -105,12 +218,20 @@ app.registerExtension({
                     if (data.properties.blend_mode !== undefined) {
                         this.properties.blend_mode = data.properties.blend_mode;
                     }
+                    if (data.properties.compare_axis !== undefined) {
+                        this.properties.compare_axis = normalizeCompareAxis(data.properties.compare_axis);
+                    }
                 }
 
                 if (data.isManuallyResized) this.isManuallyResized = data.isManuallyResized;
                 if (data.slider_pos !== undefined) {
                     this.slider_pos = data.slider_pos;
                 }
+                if (data.compare_axis !== undefined) {
+                    this.properties.compare_axis = normalizeCompareAxis(data.compare_axis);
+                }
+
+                setCompareAxis(this.properties.compare_axis);
             };
 
             const originalSerialize = node.serialize;
@@ -119,6 +240,7 @@ app.registerExtension({
                 const data = originalSerialize.call(this);
                 data.isManuallyResized = this.isManuallyResized;
                 data.slider_pos = this.slider_pos;
+                data.compare_axis = normalizeCompareAxis(this.properties.compare_axis);
                 return data;
             };
 
@@ -130,6 +252,7 @@ app.registerExtension({
                 }
             };
 
+            
             // Helper function to draw the text 
             // label with its new background
             const drawLabelWithBackground = (ctx, text, x, y, textAlign) => {
@@ -167,9 +290,19 @@ app.registerExtension({
                 // Draw text
                 ctx.fillStyle = "white";
                 ctx.textAlign = textAlign;
-                ctx.textBaseline = "middle"; // Change textBaseline to middle
+                ctx.textBaseline = "middle";
                 ctx.fillText(text, x, y);
             }
+
+            const drawRoundedRectPath = (ctx, x, y, width, height, radius) => {
+                const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+                ctx.moveTo(x + r, y);
+                ctx.arcTo(x + width, y, x + width, y + height, r);
+                ctx.arcTo(x + width, y + height, x, y + height, r);
+                ctx.arcTo(x, y + height, x, y, r);
+                ctx.arcTo(x, y, x + width, y, r);
+                ctx.closePath();
+            };
 
             Object.assign(node, {
                 getContainerArea() {
@@ -177,7 +310,7 @@ app.registerExtension({
                         x: PADDING,
                         y: HEADER_HEIGHT,
                         width: this.size[0] - PADDING * 2,
-                        height: this.size[1] - HEADER_HEIGHT - PADDING - RESOLUTION_TEXT_HEIGHT
+                        height: this.size[1] - HEADER_HEIGHT - BOTTOM_PADDING - RESOLUTION_TEXT_HEIGHT
                     };
 
                     if (area.height < 0)
@@ -207,6 +340,10 @@ app.registerExtension({
                     return { x: renderX, y: renderY, width: renderWidth, height: renderHeight };
                 },
 
+                getCompareAxis() {
+                    return (this.properties && this.properties.compare_axis === "vertical") ? "vertical" : "horizontal";
+                },
+
                 onDrawForeground(ctx) {
                     if (this.flags.collapsed)
                         return;
@@ -232,7 +369,7 @@ app.registerExtension({
                                 ctx.textBaseline = "top";
 
                                 const textX = containerArea.x + (containerArea.width / 2);
-                                const textY = renderData.y + renderData.height + 3;
+                                const textY = renderData.y + renderData.height + RESOLUTION_TEXT_TOP_OFFSET;
                                 ctx.fillText(this.imageA_res, textX, textY);
                             }
                             ctx.restore();
@@ -240,7 +377,11 @@ app.registerExtension({
                         }
 
                         const sliderValue = this.slider_pos;
-                        const sliderPx = renderData.x + sliderValue * renderData.width;
+                        const compareAxis = this.getCompareAxis();
+                        const isVerticalCompare = compareAxis === "vertical";
+                        const sliderPx = isVerticalCompare
+                            ? renderData.y + sliderValue * renderData.height
+                            : renderData.x + sliderValue * renderData.width;
                         const blendMode = this.properties.blend_mode || "normal";
 
                         const setTextStyle = () => {
@@ -279,7 +420,13 @@ app.registerExtension({
 
                             ctx.save();
                             ctx.beginPath();
-                            ctx.rect(sliderPx, renderData.y, renderData.width * (1.0 - sliderValue), renderData.height);
+                            if (isVerticalCompare) {
+                                const bottomMaskHeight = (renderData.y + renderData.height) - sliderPx;
+                                ctx.rect(renderData.x, sliderPx, renderData.width, bottomMaskHeight);
+                            }
+                            else {
+                                ctx.rect(sliderPx, renderData.y, renderData.width * (1.0 - sliderValue), renderData.height);
+                            }
                             ctx.clip();
                             ctx.drawImage(this.imageB, renderData.x, renderData.y, renderData.width, renderData.height);
                             ctx.restore();
@@ -295,7 +442,12 @@ app.registerExtension({
 
                             ctx.save();
                             ctx.beginPath();
-                            ctx.rect(renderData.x, renderData.y, sliderPx - renderData.x, renderData.height);
+                            if (isVerticalCompare) {
+                                ctx.rect(renderData.x, renderData.y, renderData.width, sliderPx - renderData.y);
+                            }
+                            else {
+                                ctx.rect(renderData.x, renderData.y, sliderPx - renderData.x, renderData.height);
+                            }
                             ctx.clip();
                             ctx.drawImage(this.imageA, renderData.x, renderData.y, renderData.width, renderData.height);
                             ctx.restore();
@@ -307,7 +459,12 @@ app.registerExtension({
                         // Image A label
                         ctx.save();
                         ctx.beginPath();
-                        ctx.rect(renderData.x, renderData.y, sliderPx - renderData.x, renderData.height);
+                        if (isVerticalCompare) {
+                            ctx.rect(renderData.x, renderData.y, renderData.width, sliderPx - renderData.y);
+                        }
+                        else {
+                            ctx.rect(renderData.x, renderData.y, sliderPx - renderData.x, renderData.height);
+                        }
                         ctx.clip();
                         drawLabelWithBackground(ctx, "A", renderData.x + 5, renderData.y + 9, "left");
                         ctx.restore();
@@ -315,50 +472,71 @@ app.registerExtension({
                         // Image B label
                         ctx.save();
                         ctx.beginPath();
-                        const rightMaskStart = sliderPx;
-                        const rightMaskWidth = (renderData.x + renderData.width) - sliderPx;
-                        ctx.rect(rightMaskStart, renderData.y, rightMaskWidth, renderData.height);
+                        if (isVerticalCompare) {
+                            const bottomMaskHeight = (renderData.y + renderData.height) - sliderPx;
+                            ctx.rect(renderData.x, sliderPx, renderData.width, bottomMaskHeight);
+                        }
+                        else {
+                            const rightMaskStart = sliderPx;
+                            const rightMaskWidth = (renderData.x + renderData.width) - sliderPx;
+                            ctx.rect(rightMaskStart, renderData.y, rightMaskWidth, renderData.height);
+                        }
                         ctx.clip();
-                        drawLabelWithBackground(ctx, "B", renderData.x + renderData.width - 5, renderData.y + 9, "right");
+                        if (isVerticalCompare) {
+                            drawLabelWithBackground(ctx, "B", renderData.x + 5, renderData.y + renderData.height - 9, "left");
+                        }
+                        else {
+                            drawLabelWithBackground(ctx, "B", renderData.x + renderData.width - 5, renderData.y + 9, "right");
+                        }
                         ctx.restore();
 
                         const lineColor = "rgba(255, 255, 255, 0.3)";
-                        const handleColor = "rgba(255, 255, 255, 1.0)";
+                        const handleColor = "rgba(255, 255, 255, 0.95)";
 
                         ctx.strokeStyle = lineColor;
                         ctx.lineWidth = 0.5;
                         ctx.beginPath();
-                        ctx.moveTo(sliderPx, renderData.y);
-                        ctx.lineTo(sliderPx, renderData.y + renderData.height);
+                        if (isVerticalCompare) {
+                            ctx.moveTo(renderData.x, sliderPx);
+                            ctx.lineTo(renderData.x + renderData.width, sliderPx);
+                        }
+                        else {
+                            ctx.moveTo(sliderPx, renderData.y);
+                            ctx.lineTo(sliderPx, renderData.y + renderData.height);
+                        }
                         ctx.stroke();
 
+                        // Draw rounded slider handle and clip it to the image area so
+                        // the handle is naturally masked at the image edges.
+                        const baseHandleWidth = isVerticalCompare
+                            ? Math.min(34, Math.max(18, renderData.width * 0.24))
+                            : 10;
+                        const baseHandleHeight = isVerticalCompare
+                            ? 10
+                            : Math.min(34, Math.max(18, renderData.height * 0.24));
+                        const handleWidth = baseHandleWidth * HANDLE_SCALE;
+                        const handleHeight = baseHandleHeight * HANDLE_SCALE;
+                        const handleRadius = 3.5;
+                        const handleX = isVerticalCompare
+                            ? renderData.x + ((renderData.width - handleWidth) / 2)
+                            : sliderPx - (handleWidth / 2);
+                        const handleY = isVerticalCompare
+                            ? sliderPx - (handleHeight / 2)
+                            : renderData.y + ((renderData.height - handleHeight) / 2);
+
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.rect(renderData.x, renderData.y, renderData.width, renderData.height);
+                        ctx.clip();
+
                         ctx.fillStyle = handleColor;
-                        const handleY = renderData.y + renderData.height / 2;
-                        const triangleSize = 3.5;
-                        const triangleGap = 2.5;
-                        const smallValue = 0.001;
-
-                        // Left-pointing triangle 
-                        // (hide if at the left edge)
-                        if (this.slider_pos > smallValue) {
-                            ctx.beginPath();
-                            ctx.moveTo(sliderPx - triangleGap, handleY - triangleSize);
-                            ctx.lineTo(sliderPx - triangleGap, handleY + triangleSize);
-                            ctx.lineTo(sliderPx - triangleGap - triangleSize, handleY);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
-
-                        // Right-pointing triangle 
-                        // (hide if at the right edge)
-                        if (this.slider_pos < 1.0 - smallValue) {
-                            ctx.beginPath();
-                            ctx.moveTo(sliderPx + triangleGap, handleY - triangleSize);
-                            ctx.lineTo(sliderPx + triangleGap, handleY + triangleSize);
-                            ctx.lineTo(sliderPx + triangleGap + triangleSize, handleY);
-                            ctx.closePath();
-                            ctx.fill();
-                        }
+                        ctx.strokeStyle = "rgba(0, 0, 0, 0.18)";
+                        ctx.lineWidth = 0.8;
+                        ctx.beginPath();
+                        drawRoundedRectPath(ctx, handleX, handleY, handleWidth, handleHeight, handleRadius);
+                        ctx.fill();
+                        ctx.stroke();
+                        ctx.restore();
 
                     }
                     else {
@@ -388,7 +566,7 @@ app.registerExtension({
                         }
 
                         const textX = containerArea.x + (containerArea.width / 2);
-                        const textY = renderData.y + renderData.height + 3;
+                        const textY = renderData.y + renderData.height + RESOLUTION_TEXT_TOP_OFFSET;
                         ctx.fillText(resText, textX, textY);
                     }
 
@@ -401,8 +579,18 @@ app.registerExtension({
 
                     const renderData = this.getImageRenderData(this.imageA, this.getContainerArea());
                     const localPos = app.canvas.convertEventToCanvasOffset(event);
-                    const mouseX = localPos[0] - this.pos[0];
-                    let newSliderValue = (mouseX - renderData.x) / renderData.width;
+                    const compareAxis = this.getCompareAxis();
+                    let newSliderValue;
+
+                    if (compareAxis === "vertical") {
+                        const mouseY = localPos[1] - this.pos[1];
+                        newSliderValue = (mouseY - renderData.y) / renderData.height;
+                    }
+                    else {
+                        const mouseX = localPos[0] - this.pos[0];
+                        newSliderValue = (mouseX - renderData.x) / renderData.width;
+                    }
+
                     this.slider_pos = Math.max(0.0, Math.min(1.0, newSliderValue));
                     this.setDirtyCanvas(true, true);
                 },
@@ -440,7 +628,8 @@ app.registerExtension({
             });
 
 
-            // --- CONTEXT MENU LOGIC ---
+            // CONTEXT MENU --------
+
             const originalGetExtraMenuOptions = node.getExtraMenuOptions;
 
             node.getExtraMenuOptions = function (canvas, options) {
@@ -451,6 +640,7 @@ app.registerExtension({
                 // "Save Workflow" option, always available
                 options.unshift({
                     content: "Save Workflow (.json)",
+                    
                     callback: () => {
                         const workflowJson = JSON.stringify(app.graph.serialize(), null, 2);
                         const blob = new Blob([workflowJson], { type: "application/json" });
@@ -469,6 +659,7 @@ app.registerExtension({
 
                 // Image-related menu options
                 const containerArea = this.getContainerArea();
+                
                 if (!this.imageA || !containerArea) {
                     return;
                 }
@@ -482,11 +673,19 @@ app.registerExtension({
                     mouse_pos[1] <= this.pos[1] + renderData.y + renderData.height;
 
                 if (isOverImage) {
-                    const sliderAbsX = this.pos[0] + renderData.x + (this.slider_pos * renderData.width);
+                    const compareAxis = this.getCompareAxis();
+                    const sliderAbs = compareAxis === "vertical"
+                        ? this.pos[1] + renderData.y + (this.slider_pos * renderData.height)
+                        : this.pos[0] + renderData.x + (this.slider_pos * renderData.width);
+                    
                     let imageToOpen = null;
                     let imageLabel = '';
 
-                    if (mouse_pos[0] < sliderAbsX) {
+                    const isInARegion = compareAxis === "vertical"
+                        ? mouse_pos[1] < sliderAbs
+                        : mouse_pos[0] < sliderAbs;
+
+                    if (isInARegion) {
                         imageToOpen = this.imageA;
                         imageLabel = 'A';
                     }
@@ -540,6 +739,7 @@ app.registerExtension({
                                 document.body.removeChild(link);
                             }
                         });
+                        
                     }
                 }
             };
@@ -578,7 +778,7 @@ api.addEventListener("eses.image_compare_preview", ({ detail }) => {
 
     node.imageA = detail.image_a_data ? Object.assign(new Image(), { src: `data:image/png;base64,${detail.image_a_data}`, onload: onAssetLoaded }) : null;
     node.imageB = detail.image_b_data ? Object.assign(new Image(), { src: `data:image/png;base64,${detail.image_b_data}`, onload: onAssetLoaded }) : null;
-
     node.imageA_res = detail.image_a_res;
     node.imageB_res = detail.image_b_res;
+
 });
