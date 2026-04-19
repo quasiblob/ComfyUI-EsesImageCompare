@@ -490,32 +490,40 @@ app.registerExtension({
                         }
                         ctx.restore();
 
-                        const lineColor = "rgba(255, 255, 255, 0.3)";
+                        const lineColor = "rgba(255, 255, 255, 0.9)";
                         const handleColor = "rgba(255, 255, 255, 0.95)";
 
+                        ctx.save();
+                        ctx.globalCompositeOperation = "difference";
+                        ctx.shadowColor = "transparent";
+                        ctx.shadowBlur = 0;
+                        ctx.shadowOffsetX = 0;
+                        ctx.shadowOffsetY = 0;
                         ctx.strokeStyle = lineColor;
+                        ctx.lineCap = "butt";
                         ctx.lineWidth = 0.5;
+                        // Keep the divider fully on the B side so it samples only one image.
+                        const dividerCenterPx = sliderPx + (ctx.lineWidth / 2);
                         ctx.beginPath();
                         if (isVerticalCompare) {
-                            ctx.moveTo(renderData.x, sliderPx);
-                            ctx.lineTo(renderData.x + renderData.width, sliderPx);
+                            ctx.moveTo(renderData.x, dividerCenterPx);
+                            ctx.lineTo(renderData.x + renderData.width, dividerCenterPx);
                         }
                         else {
-                            ctx.moveTo(sliderPx, renderData.y);
-                            ctx.lineTo(sliderPx, renderData.y + renderData.height);
+                            ctx.moveTo(dividerCenterPx, renderData.y);
+                            ctx.lineTo(dividerCenterPx, renderData.y + renderData.height);
                         }
                         ctx.stroke();
+                        ctx.restore();
 
                         // Draw rounded slider handle and clip it to the image area so
                         // the handle is naturally masked at the image edges.
-                        const baseHandleWidth = isVerticalCompare
-                            ? Math.min(34, Math.max(18, renderData.width * 0.24))
-                            : 10;
-                        const baseHandleHeight = isVerticalCompare
-                            ? 10
-                            : Math.min(34, Math.max(18, renderData.height * 0.24));
-                        const handleWidth = baseHandleWidth * HANDLE_SCALE;
-                        const handleHeight = baseHandleHeight * HANDLE_SCALE;
+                        const baseHandleLong = Math.min(34, Math.max(18, Math.min(renderData.width, renderData.height) * 0.24));
+                        const baseHandleShort = 10;
+                        const handleLong = baseHandleLong * HANDLE_SCALE * 1.2;
+                        const handleShort = baseHandleShort * HANDLE_SCALE * 0.8;
+                        const handleWidth = isVerticalCompare ? handleLong : handleShort;
+                        const handleHeight = isVerticalCompare ? handleShort : handleLong;
                         const handleRadius = 3.5;
                         const handleX = isVerticalCompare
                             ? renderData.x + ((renderData.width - handleWidth) / 2)
